@@ -28,8 +28,8 @@ import pytest
 from solders.signature import Signature
 
 
-# if platform.system() != "Linux":
-#     pytest.skip("Runs only on linux", allow_module_level=True)
+if platform.system() != "Linux":
+    pytest.skip("Runs only on linux", allow_module_level=True)
 
 from aea_ledger_solana import LAMPORTS_PER_SOL, SolanaApi, SolanaCrypto, SolanaFaucetApi
 from nacl.signing import VerifyKey
@@ -119,8 +119,8 @@ def _construct_and_settle_tx(
         **tx_params, tx_fee=0, tx_nonce=""
     )
     # add nonce
-    transfer_transaction = solana_api.add_increase_compute_ix(transfer_transaction, 100_000, 10_000)
     transfer_transaction = solana_api.add_nonce(transfer_transaction)
+
     signed_transaction = account1.sign_transaction(transfer_transaction)
 
     transaction_digest = solana_api.send_signed_transaction(signed_transaction)
@@ -594,6 +594,8 @@ def test_contract_method_call():
             },
             tx_args=None,
         )
+
+        tx1["message"]["header"]["numReadonlySignedAccounts"] = 0
         tx1 = sa.add_nonce(tx1)
 
         signed_transaction = active_player.sign_transaction(
