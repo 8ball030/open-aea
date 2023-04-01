@@ -22,12 +22,14 @@ import json
 import time
 from pathlib import Path
 from typing import Any, Dict, Optional, Tuple, cast
+from struct import pack_into
 
 from anchorpy.coder.accounts import ACCOUNT_DISCRIMINATOR_SIZE
 from anchorpy.idl import _decode_idl_account
 from solana.blockhash import BlockhashCache  # type: ignore
 from solana.rpc.api import Client  # type: ignore
 from solders.pubkey import Pubkey as PublicKey
+from solders.instruction import Instruction
 
 from aea.common import Address, JSONLike
 from aea.crypto.base import Crypto, Helper
@@ -241,16 +243,37 @@ class SolanaHelper(Helper):
         """
         stxn = SolanaTransaction.from_json(tx)
         nonce = self._generate_tx_nonce()
+        stxn.recent_blockhash =  stxn.recent_blockhash.from_string(nonce)
         txn = stxn.to_json()
-        txn["recentBlockhash"] = nonce
         return txn
+    
+    def add_increase_compute_ix(self, tx: dict, compute: int, additional_fee: int) -> JSONLike:
+        """
+        Increase compute budget/fee on a tx.
+        :param tx: the transaction
+        :param compute: the compute budget
+        :param additional_fee: the additional fee
+        :return: True if the random_message is equals to tx['input']
+        """
+        program_id = PublicKey.from_string("ComputeBudget111111111111111111111111111111")
 
+        name_bytes = bytearray(1 + 4 + 4)
+        pack_into("B", name_bytes, 0, 0)
+        pack_into("I", name_bytes, 1, compute)
+        pack_into("I", name_bytes, 5, additional_fee)
+        data = bytes(name_bytes)
+
+        compute_ix = Instruction(program_id, data,[])
+        tx = self.to_transaction_format(tx)
+        tx.add(compute_ix)
+
+        return self.to_dict_format(tx)
+    
     @staticmethod
     def to_transaction_format(tx: dict) -> Any:
         """Check whether a transaction is valid or not."""
-        jsonTx = json.dumps(tx)
-        stxn = SolanaTransaction.from_json(jsonTx)  # mypy: ignore
-        return SolanaTransaction.from_solders(stxn)
+        stxn = SolanaTransaction.from_json(tx)  # mypy: ignore
+        return stxn
 
     @staticmethod
     def to_dict_format(tx) -> JSONLike:

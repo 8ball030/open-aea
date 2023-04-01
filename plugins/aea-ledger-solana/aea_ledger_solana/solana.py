@@ -44,7 +44,7 @@ from aea.common import Address, JSONLike
 from aea.crypto.base import LedgerApi
 from aea.helpers.base import try_decorator
 
-from .constants import DEFAULT_ADDRESS, DEFAULT_CHAIN_ID, _SOLANA, _VERSION
+from .constants import DEFAULT_ADDRESS, DEFAULT_CHAIN_ID, _SOLANA
 from .crypto import SolanaCrypto
 from .faucet import SolanaFaucetApi  # noqa: F401
 from .helper import SolanaHelper
@@ -72,7 +72,6 @@ class SolanaApi(LedgerApi, SolanaHelper):
         )
 
         self._chain_id = kwargs.pop("chain_id", DEFAULT_CHAIN_ID)
-        self._version = _VERSION
         self.BlockhashCache = BlockhashCache(ttl=10)
         self._get_latest_hash()
 
@@ -583,6 +582,7 @@ class SolanaApi(LedgerApi, SolanaHelper):
         :param raise_on_try: whether the method will raise or log on error
         :return: the transaction
         """
+
         if method_args is None:
             raise ValueError("`method_args` can not be None")
 
@@ -601,7 +601,45 @@ class SolanaApi(LedgerApi, SolanaHelper):
             *data, ctx=Context(accounts=accounts, remaining_accounts=remaining_accounts)
         )
         return json.loads(txn.to_solders().to_json())
+    
+    def build_instruction(  # pylint: disable=too-many-arguments
+        self,
+        contract_instance: Any,
+        method_name: str,
+        method_args: Optional[Dict[Any, Any]],
+        ix_args: Optional[Dict[Any, Any]],
+        raise_on_try: bool = False,
+    ) -> Optional[JSONLike]:
+        """Prepare a transaction
 
+        :param contract_instance: the contract to use
+        :param method_name: the contract method to call
+        :param method_args: the contract parameters
+        :param tx_args: the transaction parameters
+        :param raise_on_try: whether the method will raise or log on error
+        :return: the transaction
+        """
+        if method_args is None:
+            raise ValueError("`method_args` can not be None")
+
+        if method_args["data"] is None:
+            raise ValueError("Data is required")
+        if method_args["accounts"] is None:
+            raise ValueError("Accounts are required")
+        if "remaining_accounts" not in method_args:
+            method_args["remaining_accounts"] = None
+
+        data = method_args["data"]
+        accounts = method_args["accounts"]
+        remaining_accounts = method_args["remaining_accounts"]
+
+        ix = contract_instance.instruction[method_name](
+            *data, ctx=Context(accounts=accounts, remaining_accounts=remaining_accounts)
+        )
+        # ix_json = json.loads(ix.to_json())
+        # ix = Instruction.from_json(json.dumps(ix_json))
+        return json.loads(ix.to_json())
+    
     def get_transaction_transfer_logs(  # pylint: disable=too-many-arguments,too-many-locals
         self,
         contract_instance: Any,

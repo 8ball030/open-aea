@@ -144,7 +144,7 @@ class SolanaCrypto(Crypto[Keypair]):
         keypair = Keypair.from_base58_string(self.private_key)
         signers = [Keypair.from_base58_string(signer.private_key) for signer in signers]
         signers.append(keypair)
-        recent_hash = Hash.from_string(transaction["recentBlockhash"])
+        recent_hash = Hash.from_bytes(transaction['message']["recentBlockhash"])
         stxn = Transaction.from_json(jsonTx)
         stxn.sign(keypairs=signers, recent_blockhash=recent_hash)
         return json.loads(stxn.to_json())
